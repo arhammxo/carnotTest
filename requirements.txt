@@ -1,0 +1,6 @@
+flask 
+pdfplumber 
+python-docx 
+transformers 
+sentence-transformers 
+torch
