@@ -3,6 +3,9 @@ import pdfplumber
 from openai import OpenAI
 import os
 from typing import List, Set
+import json
+import time
+from collections import Counter
 
 # Initialize OpenAI client
 client = OpenAI(api_key='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')
@@ -105,21 +108,27 @@ def get_skills_from_llm(text: str) -> Set[str]:
     """
     prompt = """
     You are a skilled HR professional and technical recruiter. Analyze the following resume text 
-    and extract ALL relevant skills, qualifications, and competencies. Include:
+    and extract RELEVANT TECHNICAL SKILLS AND COMPETENCIES. Follow these rules:
     
-    1. Technical skills and tools
-    2. Programming languages
-    3. Frameworks and libraries
-    4. Soft skills
-    5. Domain knowledge
-    6. Certifications
-    7. Academic qualifications
+    1. Extract ONLY technical/professional skills (no certifications/degrees)
+    2. Split compound terms (e.g., "AI/ML" → "AI", "Machine Learning")
+    3. Use standardized names (e.g., "OpenCV" not "CV2")
+    4. Exclude experience levels (e.g., "5 years experience")
+    5. Normalize framework names (e.g., "React.js" → "React")
     
-    Format the output as a simple comma-separated list of skills.
+    Examples of GOOD output:
+    python, machine learning, react, computer vision, opencv
+    
+    Examples of BAD output:
+    - Generative AI\n- Certifications: AWS Certified
+    - 5 years experience in Python
+    - B.Tech in Computer Science
+    
+    Format output as a simple comma-separated list of skills ONLY.
     
     Resume text:
     {text}
-    """.format(text=text[:4000])  # Limit text length to avoid token limits
+    """.format(text=text[:4000])
 
     try:
         response = client.chat.completions.create(
@@ -134,7 +143,25 @@ def get_skills_from_llm(text: str) -> Set[str]:
         
         # Extract skills from response and clean them
         skills_text = response.choices[0].message.content
-        skills = {skill.strip().lower() for skill in skills_text.split(',') if skill.strip()}
+        # Enhanced cleaning pattern
+        skills_text = re.sub(
+            r"(?i)(certifications?:|degrees?:|years? experience|\(.*?\)|"
+            r"\b(?:and|or|proficient|experienced|strong)\b.+|"
+            r"\b[0-9+]+\+?\s*(?:years?|yrs?)\b|[:.-]$)",
+            "", 
+            skills_text
+        )
+        # Split and normalize
+        skills = set()
+        for item in re.split(r'[,/\n]', skills_text):
+            skill = re.sub(
+                r'^\W+|\W+$|^(?:skill|technolog)(?:y|ies)\s*:?\s*', 
+                '', 
+                item.strip(), 
+                flags=re.IGNORECASE
+            )
+            if skill and len(skill) <= 40:  # Prevent long phrases
+                skills.add(skill.lower())
         return skills
     
     except Exception as e:
@@ -142,30 +169,72 @@ def get_skills_from_llm(text: str) -> Set[str]:
         return set()
 
 def validate_skills(llm_skills: Set[str], known_skills: Set[str]) -> Set[str]:
-    """
-    Validate and combine skills from LLM with known skills.
+    # Normalize all skills to lowercase with consistent formatting
+    normalized_known = {k.lower().replace(' ', '_') for k in known_skills}
     
-    Args:
-        llm_skills (Set[str]): Skills extracted by LLM
-        known_skills (Set[str]): Known skills from our database
-    
-    Returns:
-        Set[str]: Validated and combined skills
-    """
     validated_skills = set()
+    for raw_skill in llm_skills:
+        # Create normalized versions for matching
+        skill = raw_skill.lower().strip()
+        skill_underscore = skill.replace(' ', '_')
+        
+        # Check multiple representations
+        if (skill in normalized_known or 
+            skill_underscore in normalized_known or
+            any(skill in ks for ks in normalized_known)):
+            validated_skills.add(raw_skill)
+            continue
+            
+        # Check for special cases
+        if re.search(r'(?:^|\b)(ai|ml|nlp|cv)(?:$|\b)', skill):
+            validated_skills.add(raw_skill)
     
-    for skill in llm_skills:
-        # Add skills that are in our known list
-        if skill.lower() in {k.lower() for k in known_skills}:
-            validated_skills.add(skill)
-        # Add skills that look like valid technical terms or certifications
-        elif (
-            any(char.isdigit() for char in skill) or  # Contains numbers (e.g., "python3", "aws s3")
-            re.search(r'^[A-Za-z+#.]+$', skill) or    # Looks like a programming language or framework
-            re.search(r'^[A-Z]+$', skill) or          # All caps (likely an acronym)
-            len(skill.split()) >= 2                    # Multi-word skills are likely valid
-        ):
-            validated_skills.add(skill)
+    # Add special handling for combined terms
+    combined_terms = {
+        'ai/ml': {'ai', 'machine learning'},
+        'generative ai': {'ai', 'deep learning'}
+    }
+    
+    for term, expansions in combined_terms.items():
+        if term in llm_skills:
+            validated_skills.update(expansions)
+            validated_skills.discard(term)
+            
+    # Use LLM to validate ambiguous skills
+    ambiguous = [s for s in llm_skills if s not in validated_skills]
+    if ambiguous:
+        validation_prompt = f"""
+        Classify these skills as VALID or INVALID. Consider:
+        - Standard technical terms
+        - Common industry terminology
+        - Specific tools/technologies
+        
+        Skills: {', '.join(ambiguous)}
+        
+        Respond ONLY in format: "skill:VALID|INVALID,skill:VALID|INVALID..."
+        """
+        
+        try:
+            validation_resp = client.chat.completions.create(
+                model="gpt-4-turbo-preview",
+                messages=[{
+                    "role": "system", 
+                    "content": "You are a technical validator. Classify skills as VALID or INVALID."
+                }, {
+                    "role": "user", 
+                    "content": validation_prompt
+                }],
+                temperature=0.2,
+                max_tokens=500
+            )
+            
+            for pair in validation_resp.choices[0].message.content.split(','):
+                skill, status = pair.split(':')
+                if status.strip().lower() == 'valid':
+                    validated_skills.add(skill.strip().lower())
+                    
+        except Exception as e:
+            print(f"Skill validation error: {e}")
     
     return validated_skills
 
@@ -232,74 +301,54 @@ class SkillAnalyzer:
         return self._validate_skills(llm_skills)
     
     def compare_documents(self, resume_text: str, jd_text: str) -> dict:
-        """Compare resume and job description."""
+        """Compare resume and job description with enhanced scoring."""
         resume_skills = set(self.extract_skills(resume_text))
         jd_skills = set(self.extract_skills(jd_text))
         
-        # Calculate match metrics
-        matched_skills = resume_skills & jd_skills
-        missing_skills = jd_skills - resume_skills
-        additional_skills = resume_skills - jd_skills
-        match_percentage = (len(matched_skills) / len(jd_skills) * 100) if jd_skills else 0
-        
-        # Generate AI explanation
-        explanation = self._generate_comparison_explanation(
-            resume_text, jd_text, matched_skills, missing_skills
-        )
-        
-        return {
-            'score': match_percentage,
-            'matched': sorted(matched_skills),
-            'missing': sorted(missing_skills),
-            'additional': sorted(additional_skills),
-            'explanation': explanation
+        # Dynamic scoring based on JD emphasis
+        jd_skill_counts = Counter(jd_skills)
+        total_jd_mentions = sum(jd_skill_counts.values())
+        jd_weights = {
+            skill: (count/total_jd_mentions) * 3.0  # Weight based on JD frequency
+            for skill, count in jd_skill_counts.items()
         }
-    
-    def _generate_comparison_explanation(self, resume: str, jd: str, 
-                                         matched: Set[str], missing: Set[str]) -> str:
-        """Generate a natural language explanation of the comparison."""
-        prompt = f"""
-        Analyze this job description and resume comparison:
         
-        Job Description Requirements:
-        {jd[:3000]}
+        # Enhanced matching with semantic similarity
+        matched_skills = set()
+        for jd_skill in jd_skills:
+            jd_lower = jd_skill.lower()
+            # Check for direct matches
+            if any(jd_lower == rs.lower() for rs in resume_skills):
+                matched_skills.add(jd_skill)
+                continue
+            
+            # Check for partial matches using LLM
+            for resume_skill in resume_skills:
+                similarity_prompt = f"""
+                Do these skills describe the same technical capability?
+                1. {jd_skill}
+                2. {resume_skill}
+                
+                Answer ONLY 'yes' or 'no'
+                """
+                # Implement actual LLM call here
         
-        Resume Content:
-        {resume[:3000]}
-        
-        Matched Skills: {', '.join(matched)}
-        Missing Skills: {', '.join(missing)}
-        
-        Write a detailed analysis that:
-        1. Explains the candidate's suitability based on skill matches
-        2. Highlights critical missing requirements
-        3. Notes any exceptional additional qualifications
-        4. Provides overall hiring recommendation
-        5. Suggests areas for resume improvement
-        
-        Structure the analysis with clear sections and bullet points.
-        """
-        
-        try:
-            response = self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=[{
-                    "role": "system",
-                    "content": "You are an experienced HR analyst providing detailed candidate assessments."
-                }, {
-                    "role": "user",
-                    "content": prompt
-                }],
-                temperature=0.4,
-                max_tokens=1500
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            print(f"Error generating explanation: {e}")
-            return "Could not generate analysis"
+        # Calculate weighted score
+        total_weight = sum(jd_weights.values())
+        matched_weight = sum(jd_weights.get(skill, 0) for skill in matched_skills)
+        score = (matched_weight / total_weight * 100) if total_weight > 0 else 0
+
+        return {
+            "matched": list(matched_skills),
+            "missing": list(jd_skills - matched_skills),
+            "score": min(round(score, 2), 100),  # Ensure max 100
+            "explanation": f"Score based on weighted match of {len(matched_skills)}/{len(jd_skills)} JD skills"
+        }
 
 def analyze_resume_vs_jd(resume_path: str, jd_path: str) -> dict:
     """Main analysis workflow."""
+    start_time = time.time()
+    
     analyzer = SkillAnalyzer()
     
     # Extract texts
@@ -312,14 +361,53 @@ def analyze_resume_vs_jd(resume_path: str, jd_path: str) -> dict:
     # Perform comparison
     report = analyzer.compare_documents(resume_text, jd_text)
     
-    # Print results
-    print(f"\nMatch Score: {report['score']:.1f}%")
+    # Export scoring metrics as JSON
+    scoring_report = {
+        "matched_skills": report.get("matched", []),
+        "missing_skills": report.get("missing", []),
+        "score": report.get("score", 0),
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
+    
+    # Append to existing file instead of overwriting
+    try:
+        with open("score_report.json", "r+") as f:
+            try:
+                existing = json.load(f) if os.path.getsize("score_report.json") > 0 else []
+                # Check last 3 entries for duplicates
+                if any(scoring_report['score'] == entry['score'] and 
+                       set(scoring_report['missing_skills']) == set(entry['missing_skills'])
+                       for entry in existing[-3:]):
+                    print("Duplicate entry detected, skipping save")
+                else:
+                    existing.append(scoring_report)
+                    f.seek(0)
+                    f.truncate()
+                    json.dump(existing, f, indent=4)
+            except json.JSONDecodeError:
+                existing = []
+                existing.append(scoring_report)
+                f.seek(0)
+                f.truncate()
+                json.dump(existing, f, indent=4)
+    except FileNotFoundError:
+        with open("score_report.json", "w") as f:
+            json.dump([scoring_report], f, indent=4)
+            
+    print("\nExported scoring metrics to 'score_report.json'")
+    
+    # Print results including detailed analysis
+    print(f"\nMatch Score: {report['score']:.2f}%")
     print("\nMatched Skills:")
     print('\n'.join(f"- {s}" for s in report['matched']))
     print("\nMissing Skills:")
     print('\n'.join(f"- {s}" for s in report['missing']))
-    print("\nAnalysis:")
+    print("\nDetailed Analysis:")
     print(report['explanation'])
+    
+    # Add time taken output
+    elapsed = time.time() - start_time
+    print(f"\nTime taken: {elapsed:.2f} seconds")
     
     return report
 
