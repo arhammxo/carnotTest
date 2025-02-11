@@ -243,10 +243,19 @@ if resume_file and jd_file:
             with st.container(border=True):
                 st.subheader("✅ Strengths & Matches", divider="green")
                 st.caption("These JD requirements are strongly matched:")
-                cols = st.columns([1,3])  # Icon + text layout
-                for i, item in enumerate(comparison['matched_requirements']):
-                    cols[0].success("✔️", icon="✅")
-                    cols[1].markdown(f"**{item}**  \n`Perfect match with candidate profile`")
+                for item in comparison['matched_requirements']:
+                    # Use a container with columns for better alignment
+                    with st.container():
+                        cols = st.columns([1, 15])  # Adjusted column ratio
+                        with cols[0]:
+                            st.success("✔️", icon="✅")
+                        with cols[1]:
+                            st.markdown(f"""
+                            <div style="position: relative; top: -2px;">
+                                <b>{item}</b><br>
+                                <span style="color: #666; font-size: 0.9em">Perfect match with candidate profile</span>
+                            </div>
+                            """, unsafe_allow_html=True)
 
         if 'error' in comparison:
             st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️")
