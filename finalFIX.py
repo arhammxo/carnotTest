@@ -5,8 +5,9 @@ from docx import Document
 from openai import OpenAI
 import json
 import re
+import streamlit as st 
 
-apiK = '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'
+apiK = st.secrets['openai']['api_key']
 
 def extract_text_from_pdf(file_stream):
     """Extract text from PDF resume using file stream"""
