@@ -62,27 +62,48 @@ if resume_file and jd_file:
     st.header("Extracted Requirements")
     tab1, tab2 = st.tabs(["Resume Skills", "Job Description Requirements"])
     
+    def display_skills(skills_data, title):
+        """Display skills data in a visual format"""
+        if 'error' in skills_data:
+            st.error(skills_data['error'])
+            return
+        
+        with st.container():
+            st.subheader(title)
+            
+            # Technical Skills Section
+            cols = st.columns(3)
+            with cols[0]:
+                st.markdown("### 📚 Technical Skills")
+                if skills_data.get('technical_skills'):
+                    for skill in skills_data['technical_skills']:
+                        st.markdown(f"- {skill}")
+                else:
+                    st.markdown("*No technical skills detected*")
+            
+            # Qualifications Section
+            with cols[1]:
+                st.markdown("### 🎓 Qualifications")
+                if skills_data.get('qualifications'):
+                    for qual in skills_data['qualifications']:
+                        st.markdown(f"- {qual}")
+                else:
+                    st.markdown("*No qualifications detected*")
+            
+            # Certifications Section
+            with cols[2]:
+                st.markdown("### 📜 Certifications")
+                if skills_data.get('certifications'):
+                    for cert in skills_data['certifications']:
+                        st.markdown(f"- {cert}")
+                else:
+                    st.markdown("*No certifications detected*")
+
     with tab1:
-        if 'error' in resume_skills:
-            st.error(resume_skills['error'])
-        else:
-            st.subheader("Technical Skills")
-            st.write(resume_skills.get('technical_skills', []))
-            st.subheader("Qualifications")
-            st.write(resume_skills.get('qualifications', []))
-            st.subheader("Certifications")
-            st.write(resume_skills.get('certifications', []))
-    
+        display_skills(resume_skills, "Candidate Skills Overview")
+
     with tab2:
-        if 'error' in jd_requirements:
-            st.error(jd_requirements['error'])
-        else:
-            st.subheader("Required Skills")
-            st.write(jd_requirements.get('technical_skills', []))
-            st.subheader("Required Qualifications")
-            st.write(jd_requirements.get('qualifications', []))
-            st.subheader("Required Certifications")
-            st.write(jd_requirements.get('certifications', []))
+        display_skills(jd_requirements, "Job Requirements Breakdown")
     
     # Run comparison
     if st.button("Run Comparison"):
