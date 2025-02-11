@@ -1,6 +1,4 @@
-flask 
-pdfplumber 
-python-docx 
-transformers 
-sentence-transformers 
-torch
+streamlit
+PyPDF2
+python-docx
+openai
