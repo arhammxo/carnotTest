@@ -64,38 +64,35 @@ def compare_skills(resume_data, jd_data):
     client = OpenAI(api_key=apiK)
     
     scoring_rubric = """Scoring Methodology:
-    1. Technical Skills Analysis (50%):
-       - Evaluate category coverage (Programming, Cloud, ML, DevOps, Data, AI)
-       - Award 8.3% per matched category (50/6 categories)
-       - Only require one relevant skill per category
-    2. Qualifications Evaluation (30%):
-       - Degree level matching: 15% (PhD=15%, Masters=10%, Bachelor's=5%)
-       - Field relevance: 15% (Direct match=15%, Related field=10%, Unrelated=0%)
-    3. Certification Verification (20%):
-       - 10% for required certs
-       - 10% for bonus certs exceeding requirements
+    1. Technical Skills Analysis (50% base weight):
+       - Calculate skill coverage ratio: (resume_skills_matched / jd_skills_required)
+       - Base score = (matched_skills_count / required_skills_count) * base_weight
+       - If certifications not required, use adjusted_weight = base_weight + 10
+       - Handle zero division: If JD requires 0 skills, full base weight awarded
+    
+    2. Qualifications Evaluation (30% base weight):
+       - Degree Level Match (10%):
+         * Full 10% if resume meets/exceeds JD's required degree level
+         * 5% if one level below JD requirement (e.g. JD requires Master's - resume has Bachelor's)
+         * 0% if two+ levels below
+       - Field Relevance (20%):
+         * 20% if exact field match with JD requirements
+         * 10% if related field (e.g. Computer Engineering vs Computer Science)
+         * 0% for unrelated fields
+       - Only apply these scores if candidate has at least the minimum required degree type
+       - Complete mismatch (e.g. JD requires CS degree - resume has unrelated degree) = 0% overall
+    
+    3. Certification Verification (20% conditional):
+       - ONLY APPLY IF JD REQUIRES SPECIFIC CERTS
+       - If no certs required in JD, redistribute:
+         - Technical Skills: +10% (total 60%)
+         - Qualifications: +10% (total 40%)
+       - Required certs: 15%
+       - Bonus certs: 5%
+    
     4. Experience Bonus (0-10%):
-       - +2% per year of relevant experience over requirement
-       - Max +10% bonus
-
-    Required Response Format:
-    {
-        "overall_score": 78.5,
-        "score_breakdown": {
-            "technical_skills": 41.5,
-            "qualifications": 25.0,
-            "certifications": 12.0,
-            "bonuses": 5.0
-        },
-        "missing_requirements": [
-            "Cloud Security Certification (AWS/Azure)",
-            "Advanced Degree in Computer Vision"
-        ],
-        "matched_requirements": [
-            "Python/Java Programming Expertise",
-            "AWS Cloud Infrastructure Experience"
-        ]
-    }"""
+       - +2% per year over JD's minimum requirement
+       - Max +10%"""
     
     prompt = f"""Act as a senior technical recruiter with 15+ years experience. Conduct a rigorous, 
     quantitative analysis following these steps:
@@ -131,10 +128,11 @@ def compare_skills(resume_data, jd_data):
 
     Final Response Format:
     {{
+        "certifications_required": [true/false],
         "overall_score": [0-100 score with one decimal],
         "score_breakdown": {{
-            "technical_skills": [0-50],
-            "qualifications": [0-30],
+            "technical_skills": [0-50/60],
+            "qualifications": [0-30/40],
             "certifications": [0-20],
             "bonuses": [0-10]
         }},
