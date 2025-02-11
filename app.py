@@ -170,9 +170,28 @@ if resume_file and jd_file:
                     'bonuses': 10
                 }
 
-                # Always use 4 columns but adjust visibility
-                cols = st.columns(4 if certs_required else 3)
+                # Create equal columns with proper spacing
+                cols = st.columns(4 if certs_required else 3, gap="large")
                 
+                # Add custom styling for centering
+                st.markdown("""
+                <style>
+                    .metric-container {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 15px;
+                        border-radius: 10px;
+                        background-color: rgba(255,255,255,0.1);
+                    }
+                    .metric-label {
+                        text-align: center !important;
+                        margin-bottom: 8px !important;
+                    }
+                </style>
+                """, unsafe_allow_html=True)
+
                 for i, (category, score) in enumerate(comparison['score_breakdown'].items()):
                     if not certs_required and category == 'certifications':
                         continue
@@ -190,11 +209,19 @@ if resume_file and jd_file:
                     # Calculate column index based on certification presence
                     col_idx = i if certs_required else i if i < 3 else i-1
                     with cols[col_idx]:
-                        st.metric(
-                            label=f"{category_info[category]['icon']} {category_info[category]['label']}",
-                            value=f"{normalized_score:.1f}%",
-                            help=f"Weighted contribution: {max_weight}% of total score"
-                        )
+                        st.markdown(f"""
+                        <div class="metric-container">
+                            <div class="metric-label">
+                                {category_info[category]['icon']} {category_info[category]['label']}
+                            </div>
+                            <div style="font-size: 26px; font-weight: bold; margin: 8px 0;">
+                                {normalized_score:.1f}%
+                            </div>
+                            <div style="font-size: 12px; color: #666; text-align: center">
+                                Weight: {max_weight}%
+                            </div>
+                        </div>
+                        """, unsafe_allow_html=True)
 
         # Requirements analysis with visual indicators
         if comparison.get('missing_requirements'):
@@ -232,8 +259,7 @@ if resume_file and jd_file:
 
                 # Split explanation into sections 
                 sections = score_explanation.split('## ')
-                for section in sections:
-                    st.markdown("""
+                st.markdown("""
                     <style>
                     .analysis-header {
                         background: var(--secondary-background-color);
@@ -250,97 +276,97 @@ if resume_file and jd_file:
                     """, unsafe_allow_html=True)
                     
                     # Combined card container with bottom margin
-                    with st.container(border=True):
-                        cols = st.columns(2)
-                        with cols[0]:
-                            st.markdown("### 🎯 Key Strengths")
-                            # Dynamic strengths from comparison results
-                            if comparison.get('matched_requirements'):
-                                for item in comparison['matched_requirements'][:3]:  # Top 3 matches
-                                    st.success(f"✅ {item}")
-                            else:
-                                st.warning("No strong matches found", icon="⚠️")
+                with st.container(border=True):
+                    cols = st.columns(2)
+                    with cols[0]:
+                        st.markdown("### 🎯 Key Strengths")
+                        # Dynamic strengths from comparison results
+                        if comparison.get('matched_requirements'):
+                            for item in comparison['matched_requirements'][:3]:  # Top 3 matches
+                                st.success(f"✅ {item}")
+                        else:
+                            st.warning("No strong matches found", icon="⚠️")
                             
-                            st.markdown("### 📉 Improvement Areas")
-                            # Dynamic gaps from comparison results
-                            if comparison.get('missing_requirements'):
-                                for item in comparison['missing_requirements'][:3]:  # Top 3 gaps
-                                    st.error(f"⚠️ {item}")
-                            else:
-                                st.success("All key requirements met!", icon="🎉")
+                        st.markdown("### 📉 Improvement Areas")
+                        # Dynamic gaps from comparison results
+                        if comparison.get('missing_requirements'):
+                            for item in comparison['missing_requirements'][:3]:  # Top 3 gaps
+                                st.error(f"⚠️ {item}")
+                        else:
+                            st.success("All key requirements met!", icon="🎉")
 
-                        with cols[1]:
-                            st.markdown("### 🏆 Recommendation")
-                            # Dynamic recommendation based on score
-                            score = comparison.get('overall_score', 0)
-                            if score >= 90:
-                                rec_text = "🥇 Gold Tier Candidate - Ideal Hire"
-                                rec_details = "Strongly recommend for senior roles with leadership potential"
-                            elif score >= 75:
-                                rec_text = "🥈 Silver Tier Candidate - Strong Match" 
-                                rec_details = "Recommend for mid-level roles with growth opportunities"
-                            elif score >= 50:
-                                rec_text = "🥉 Bronze Tier Candidate - Potential Fit"
-                                rec_details = "Consider for junior roles with mentorship"
-                            else:
-                                rec_text = "🚫 Not Recommended - Significant Gaps"
-                                rec_details = "Doesn't meet minimum requirements"
+                    with cols[1]:
+                        st.markdown("### 🏆 Recommendation")
+                        # Dynamic recommendation based on score
+                        score = comparison.get('overall_score', 0)
+                        if score >= 90:
+                            rec_text = "🥇 Gold Tier Candidate - Ideal Hire"
+                            rec_details = "Strongly recommend for senior roles with leadership potential"
+                        elif score >= 75:
+                            rec_text = "🥈 Silver Tier Candidate - Strong Match" 
+                            rec_details = "Recommend for mid-level roles with growth opportunities"
+                        elif score >= 50:
+                            rec_text = "🥉 Bronze Tier Candidate - Potential Fit"
+                            rec_details = "Consider for junior roles with mentorship"
+                        else:
+                            rec_text = "🚫 Not Recommended - Significant Gaps"
+                            rec_details = "Doesn't meet minimum requirements"
                             
-                            st.markdown(f"""
-                            <div style="margin-bottom: 20px;">
-                                <div style="font-size:18px; font-weight:bold;">
-                                    {rec_text}
-                                </div>
-                                <p style="margin:0; line-height:1.5;">
-                                {rec_details}<br>
-                                Score: {score:.1f}%
-                                </p>
+                        st.markdown(f"""
+                        <div style="margin-bottom: 20px;">
+                            <div style="font-size:18px; font-weight:bold;">
+                                {rec_text}
                             </div>
-                            """, unsafe_allow_html=True)
+                            <p style="margin:0; line-height:1.5;">
+                            {rec_details}<br>
+                            Score: {score:.1f}%
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
                             
-                            st.markdown("### 📅 Next Steps")
-                            # Dynamic next steps based on score
-                            steps = []
-                            if score >= 75:
-                                steps = [
-                                    "Schedule final interview with tech lead",
-                                    "Request reference checks",
-                                    "Prepare offer letter"
-                                ]
-                            elif score >= 50:
-                                steps = [
-                                    "Conduct technical screening",
-                                    "Review portfolio projects",
-                                    "Schedule team interview"
-                                ]
+                        st.markdown("### 📅 Next Steps")
+                        # Dynamic next steps based on score
+                        steps = []
+                        if score >= 75:
+                            steps = [
+                                "Schedule final interview with tech lead",
+                                "Request reference checks",
+                                "Prepare offer letter"
+                            ]
+                        elif score >= 50:
+                            steps = [
+                                "Conduct technical screening",
+                                "Review portfolio projects",
+                                "Schedule team interview"
+                            ]
+                        else:
+                            steps = [
+                                "Consider alternative candidates",
+                                "Provide constructive feedback",
+                                "Encourage re-application after upskilling"
+                            ]
+                        
+                        st.markdown("""
+                        <div style="margin-bottom: 20px;">
+                        • {}<br>
+                        • {}<br>
+                        • {}
+                        </div>
+                        """.format(*steps), unsafe_allow_html=True)
+                st.divider()
+                with st.container(border=False):
+                    st.markdown("### 📝 Detailed Assessment")
+                    # Split explanation into sections and format properly
+                    sections = score_explanation.split('## ')
+                    for section in sections:
+                        if section.strip():
+                            parts = section.split('\n', 1)
+                            if len(parts) > 1:
+                                st.subheader(parts[0])
+                                st.write(parts[1])
                             else:
-                                steps = [
-                                    "Consider alternative candidates",
-                                    "Provide constructive feedback",
-                                    "Encourage re-application after upskilling"
-                                ]
-                            
-                            st.markdown("""
-                            <div style="margin-bottom: 20px;">
-                            • {}<br>
-                            • {}<br>
-                            • {}
-                            </div>
-                            """.format(*steps), unsafe_allow_html=True)
-
-                    st.divider()
-                    with st.container(border=False):
-                        st.markdown("### 📝 Detailed Assessment")
-                        # Split explanation into sections and format properly
-                        sections = score_explanation.split('## ')
-                        for section in sections:
-                            if section.strip():
-                                parts = section.split('\n', 1)
-                                if len(parts) > 1:
-                                    st.subheader(parts[0])
-                                    st.write(parts[1])
-                                else:
-                                    st.write(section)
+                                st.write(section)
+                    
 
         if 'error' in comparison:
             st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️") 
