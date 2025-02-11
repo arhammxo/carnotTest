@@ -7,13 +7,15 @@ st.set_page_config(page_title="Resume Analyzer", layout="wide")
 # API key handling (update with your Streamlit secrets management)
 apiK = st.secrets['openai']['api_key']  # Corrected key path
 
-# File upload section
-st.header("Upload Documents")
+# File upload section - Add visual feedback
+st.header("📁 Upload Documents", divider="rainbow")
 col1, col2 = st.columns(2)
 with col1:
-    resume_file = st.file_uploader("Upload Resume", type=["pdf", "docx"])
+    resume_file = st.file_uploader("Upload Resume (PDF/DOCX)", type=["pdf", "docx"], 
+                                 help="Max file size: 5MB")
 with col2:
-    jd_file = st.file_uploader("Upload Job Description", type=["pdf", "docx"])
+    jd_file = st.file_uploader("Upload Job Description (PDF/DOCX)", type=["pdf", "docx"],
+                             help="Supported formats: PDF, Word documents")
 
 def process_uploaded_file(file):
     """Handle uploaded file processing"""
@@ -68,36 +70,34 @@ if resume_file and jd_file:
             st.error(skills_data['error'])
             return
         
-        with st.container():
-            st.subheader(title)
+        with st.container(border=True):
+            st.subheader(f"🔍 {title}")
             
             # Technical Skills Section
-            cols = st.columns(3)
-            with cols[0]:
-                st.markdown("### 📚 Technical Skills")
+            with st.expander("📚 Technical Skills", expanded=True):
                 if skills_data.get('technical_skills'):
-                    for skill in skills_data['technical_skills']:
-                        st.markdown(f"- {skill}")
+                    cols = st.columns(3)
+                    for i, skill in enumerate(skills_data['technical_skills']):
+                        cols[i%3].success(f"• {skill}")
                 else:
-                    st.markdown("*No technical skills detected*")
+                    st.warning("No technical skills detected", icon="⚠️")
             
             # Qualifications Section
-            with cols[1]:
-                st.markdown("### 🎓 Qualifications")
+            with st.expander("🎓 Education & Qualifications", expanded=True):
                 if skills_data.get('qualifications'):
                     for qual in skills_data['qualifications']:
-                        st.markdown(f"- {qual}")
+                        st.markdown(f"📌 {qual}")
                 else:
-                    st.markdown("*No qualifications detected*")
+                    st.warning("No qualifications detected", icon="⚠️")
             
             # Certifications Section
-            with cols[2]:
-                st.markdown("### 📜 Certifications")
+            with st.expander("📜 Certifications", expanded=True):
                 if skills_data.get('certifications'):
-                    for cert in skills_data['certifications']:
-                        st.markdown(f"- {cert}")
+                    cols = st.columns(2)
+                    for i, cert in enumerate(skills_data['certifications']):
+                        cols[i%2].markdown(f"🏅 {cert}")
                 else:
-                    st.markdown("*No certifications detected*")
+                    st.warning("No certifications detected", icon="⚠️")
 
     with tab1:
         display_skills(resume_skills, "Candidate Skills Overview")
@@ -131,9 +131,14 @@ if resume_file and jd_file:
             # Split into two columns for better layout
             main_col, help_col = st.columns([3, 2])
             with main_col:
-                st.markdown(f'<div class="big-score" style="color:{score_color}">{score:.1f}%</div>', 
-                          unsafe_allow_html=True)
-                st.progress(score/100, text=f"Position Fit: {score_color.capitalize()} Zone")
+                st.markdown(f"""
+                <div style="text-align:center; padding:20px; background:linear-gradient(145deg, #f0f2f6, #ffffff);
+                            border-radius:15px; box-shadow:0 4px 6px rgba(0,0,0,0.1)">
+                    <div style="font-size:24px; color:#666; margin-bottom:10px">Match Score</div>
+                    <div class="big-score" style="color:{score_color}">{score:.1f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+                st.progress(score/100, text=f"{'🚀 Excellent Fit' if score >= 75 else '📈 Good Potential' if score >= 50 else '⚠️ Needs Improvement'}")
             
             with help_col:
                 st.subheader("📊 Interpretation Guide")
@@ -188,18 +193,27 @@ if resume_file and jd_file:
         # Requirements analysis with visual indicators
         if comparison.get('missing_requirements'):
             with st.container(border=True):
-                st.subheader("❌ Missing Requirements", divider="red")
-                st.caption("These key requirements from the JD are not fully met:")
-                for item in comparison['missing_requirements']:
-                    st.markdown(f"🔴 {item}")
+                st.subheader("🔍 Gap Analysis", divider="red")
+                cols = st.columns(2)
+                with cols[0]:
+                    st.markdown("### ❌ Missing Requirements")
+                    st.caption("These key requirements from the JD are not fully met:")
+                    for item in comparison['missing_requirements']:
+                        st.error(f"• {item}", icon="🚫")
+                with cols[1]:
+                    if comparison.get('recommendations'):
+                        st.markdown("### 💡 Improvement Suggestions")
+                        for suggestion in comparison['recommendations']:
+                            st.info(f"✨ {suggestion}")
 
         if comparison.get('matched_requirements'):
             with st.container(border=True):
-                st.subheader("✅ Matched Requirements", divider="green")
+                st.subheader("✅ Strengths & Matches", divider="green")
                 st.caption("These JD requirements are strongly matched:")
-                cols = st.columns(2)
+                cols = st.columns([1,3])  # Icon + text layout
                 for i, item in enumerate(comparison['matched_requirements']):
-                    cols[i%2].markdown(f"🟢 {item}")
+                    cols[0].success("✔️", icon="✅")
+                    cols[1].markdown(f"**{item}**  \n`Perfect match with candidate profile`")
 
         if 'error' in comparison:
             st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️") 
