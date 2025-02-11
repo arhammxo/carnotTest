@@ -5,4 +5,3 @@ streamlit
 langchain-core
 langchain-openai
 langchain-chroma
-pysqlite3
