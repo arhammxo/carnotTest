@@ -4,6 +4,7 @@ import PyPDF2
 from docx import Document
 from openai import OpenAI
 import json
+import re
 
 apiK = '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'
 
@@ -59,60 +60,66 @@ def extract_skills_with_openai(text):
         return {"error": "Failed to parse OpenAI response"}
 
 def compare_skills(resume_data, jd_data):
-    """Compare resume skills with JD requirements using LLM scoring"""
+    """Compare resume skills with JD requirements using structured scoring"""
     client = OpenAI(api_key=apiK)
     
-    scoring_rubric = """Scoring Criteria:
-    1. Technical Skills (50% weight):
-       - Award FULL category score if ANY skill matches the category
-       - No partial deductions for multiple missing skills in same category
-    2. Qualifications (30% weight):
-       - Consider equivalent degrees (B.Tech = Bachelor's)
-    3. Certifications (20% weight):
-       - Only penalize for certifications EXPLICITLY required in JD
-    4. Bonus:
-       - Extra relevant skills: +2% whenever we have a relevant skill (max +10%)
-    
-    Required EXAMPLE Response Format:
+    scoring_rubric = """Scoring Methodology:
+    1. Technical Skills Analysis (50%):
+       - Evaluate category coverage (Programming, Cloud, ML, DevOps, Data, AI)
+       - Award 8.3% per matched category (50/6 categories)
+       - Only require one relevant skill per category
+    2. Qualifications Evaluation (30%):
+       - Degree level matching: 15% (PhD=15%, Masters=10%, Bachelor's=5%)
+       - Field relevance: 15% (Direct match=15%, Related field=10%, Unrelated=0%)
+    3. Certification Verification (20%):
+       - 10% for required certs
+       - 10% for bonus certs exceeding requirements
+    4. Experience Bonus (0-10%):
+       - +2% per year of relevant experience over requirement
+       - Max +10% bonus
+
+    Required Response Format:
     {
-        "overall_score": 85.5,
+        "overall_score": 78.5,
         "score_breakdown": {
-            "technical_skills": 45,
-            "qualifications": 20,
-            "certifications": 15,
-            "bonuses": 5
+            "technical_skills": 41.5,
+            "qualifications": 25.0,
+            "certifications": 12.0,
+            "bonuses": 5.0
         },
         "missing_requirements": [
-            "Cloud Computing Certification",
-            "5 years experience in AI"
+            "Cloud Security Certification (AWS/Azure)",
+            "Advanced Degree in Computer Vision"
         ],
         "matched_requirements": [
-            "Python Programming",
-            "Computer Science Degree"
+            "Python/Java Programming Expertise",
+            "AWS Cloud Infrastructure Experience"
         ]
-    }
-    """
+    }"""
     
-    prompt = f"""Act as an expert HR manager with 10+ years experience in technical recruitment. 
-    Analyze and compare these resume qualifications with job requirements:
+    prompt = f"""Act as a senior technical recruiter with 15+ years experience. Conduct a rigorous, 
+    quantitative analysis following these steps:
 
-    Key Analysis Requirements:
-    1. Match SPECIFIC resume items to BROAD JD categories:
-       - Programming Languages: Any specific language match
-       - Cloud Computing: Any cloud platform experience
-       - ML Frameworks: Framework-to-framework matches
-       - DevOps: Toolchain compatibility
-       - Data Technologies: Database/processing system matches
-       - AI Domains: Domain-specific expertise
-    2. Identify STRICT category matches - award category score only if:
-       - Resume has at least one matching item in the category
-       - Match must be direct or clearly equivalent
-    3. Flag requirements as MISSING only when:
-       - JD explicitly requires them AND
-       - Resume shows no comparable equivalent
-    4. Bonus points should be conservative:
-       - Only award for directly relevant extra skills
-       - Max +2% per relevant skill (cap at 10%)
+    1. Skill Category Analysis:
+    - Map resume skills to these JD categories:
+      [Programming, Cloud, ML, DevOps, Data, AI]
+    - Compare specificity levels (e.g., "Python" vs "Programming Languages")
+    - Award category credit for any direct/implied match
+
+    2. Qualifications Assessment:
+    - Evaluate degree LEVEL (PhD/Masters/Bachelors) against JD requirements
+    - Analyze degree FIELD relevance (CS vs IT vs unrelated)
+    - Consider course projects/thesis topics for field relevance
+
+    3. Certification Verification:
+    - Match exact cert names where required
+    - Accept equivalent certs (AWS vs Azure vs GCP)
+    - Award partial credit for in-progress certifications
+
+    4. Experience Scoring:
+    - Compare years of experience in key areas
+    - Verify project depth and complexity
+    - Award bonus for leadership experience
 
     Resume Data:
     {json.dumps(resume_data, indent=2)}
@@ -122,26 +129,21 @@ def compare_skills(resume_data, jd_data):
 
     {scoring_rubric}
 
-    Required Response Format:
+    Final Response Format:
     {{
-        "overall_score": [0-100 score with decimal precision],
+        "overall_score": [0-100 score with one decimal],
         "score_breakdown": {{
             "technical_skills": [0-50],
             "qualifications": [0-30],
             "certifications": [0-20],
             "bonuses": [0-10]
         }},
-        "missing_requirements": [
-            "Specific missing JD requirements with reason"
-        ],
-        "matched_requirements": [
-            "Specific matches between resume and JD"
-        ]
-    }}
-    """
+        "missing_requirements": ["list specific gaps with JD requirements"],
+        "matched_requirements": ["list specific matches with evidence"]
+    }}"""
     
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-4o",
         messages=[{
             "role": "user",
             "content": prompt
@@ -150,23 +152,22 @@ def compare_skills(resume_data, jd_data):
     )
     
     try:
-        result = json.loads(response.choices[0].message.content)
-        # Add default values for all expected keys
-        result.setdefault('score_breakdown', {
-            'technical_skills': 0,
-            'qualifications': 0,
-            'certifications': 0,
-            'bonuses': 0
-        })
-        result.setdefault('missing_requirements', [])
-        result.setdefault('matched_requirements', [])
+        # Extract JSON from markdown response
+        raw_response = response.choices[0].message.content
+        json_str = re.search(r'```json\n(.*?)\n```', raw_response, re.DOTALL).group(1)
+        
+        result = json.loads(json_str)
+        # Add validation for numerical values
+        for key in ['technical_skills', 'qualifications', 'certifications', 'bonuses']:
+            result['score_breakdown'][key] = float(result['score_breakdown'].get(key, 0))
+        
         result['overall_score'] = min(max(float(result.get('overall_score', 0)), 0), 100)
         return result
-    except (json.JSONDecodeError, KeyError, ValueError) as e:
-        print(f"Error parsing response: {str(e)}")  # Add error logging
-        print(f"Raw API response: {response.choices[0].message.content}")  # Log raw response
+    except (json.JSONDecodeError, KeyError, ValueError, AttributeError) as e:
+        print(f"Error parsing response: {str(e)}")
+        print(f"Raw API response: {raw_response}")  # Show actual problematic response
         return {
-            "error": "Scoring failed",
+            "error": f"Scoring failed: {str(e)}",
             "overall_score": 0,
             "score_breakdown": {
                 'technical_skills': 0,
