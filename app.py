@@ -110,28 +110,96 @@ if resume_file and jd_file:
         with st.spinner("Calculating match..."):
             comparison = compare_skills(resume_skills, jd_requirements)
         
-        st.header("Match Analysis")
+        st.header("Match Analysis", divider="rainbow")
         
-        # Score display
-        col1, col2 = st.columns([1, 3])
-        with col1:
-            st.metric("Overall Match Score", f"{comparison.get('overall_score', 0):.1f}%")
+        # Main Score Card - Full Width
+        with st.container(border=True):
+            st.markdown("""
+            <style>
+            .big-score {
+                font-size: 72px !important;
+                font-weight: bold;
+                text-align: center;
+                margin: 20px 0;
+            }
+            </style>
+            """, unsafe_allow_html=True)
             
-        with col2:
+            score = comparison.get('overall_score', 0)
+            score_color = "red" if score < 50 else "orange" if score < 75 else "green"
+            
+            # Split into two columns for better layout
+            main_col, help_col = st.columns([3, 2])
+            with main_col:
+                st.markdown(f'<div class="big-score" style="color:{score_color}">{score:.1f}%</div>', 
+                          unsafe_allow_html=True)
+                st.progress(score/100, text=f"Position Fit: {score_color.capitalize()} Zone")
+            
+            with help_col:
+                st.subheader("📊 Interpretation Guide")
+                st.markdown("""
+                - **90-100%**: Ideal candidate 🏆
+                - **75-89%**: Strong match 💪
+                - **50-74%**: Potential candidate 🤝
+                - **<50%**: Significant gaps ❌
+                """)
+
+        # Dynamic Score Breakdown
+        with st.expander("🧮 Detailed Score Composition", expanded=True):
             if 'score_breakdown' in comparison:
-                st.subheader("Score Breakdown")
-                cols = st.columns(4)
+                # Determine certification requirements from JD analysis
+                certs_required = comparison.get('certifications_required', False)
+                
+                # Adjust max weights based on certification requirements
+                max_weights = {
+                    'technical_skills': 60 if not certs_required else 50,
+                    'qualifications': 40 if not certs_required else 30,
+                    'certifications': 20,
+                    'bonuses': 10
+                }
+
+                # Create columns based on certification presence
+                num_cols = 3 if not certs_required else 4
+                cols = st.columns(num_cols)
+                
                 for i, (category, score) in enumerate(comparison['score_breakdown'].items()):
-                    cols[i%4].metric(category.title(), f"{score}%")
-        
-        # Requirements analysis
+                    # Skip certifications if not required
+                    if not certs_required and category == 'certifications':
+                        continue
+                    
+                    max_weight = max_weights.get(category, 100)
+                    normalized_score = (score / max_weight) * 100 if max_weight > 0 else 0
+                    
+                    # Custom icons and labels
+                    category_info = {
+                        'technical_skills': {"icon": "💻", "label": "Technical Skills"},
+                        'qualifications': {"icon": "🎓", "label": "Qualifications"},
+                        'certifications': {"icon": "📜", "label": "Certifications"},
+                        'bonuses': {"icon": "⭐", "label": "Bonuses"}
+                    }
+                    
+                    with cols[i%num_cols]:
+                        st.metric(
+                            label=f"{category_info[category]['icon']} {category_info[category]['label']}",
+                            value=f"{normalized_score:.1f}%",
+                            help=f"Weighted contribution: {max_weight}% of total score"
+                        )
+
+        # Requirements analysis with visual indicators
         if comparison.get('missing_requirements'):
-            with st.expander("Missing Requirements", expanded=True):
-                st.write("\n".join(f"- {item}" for item in comparison['missing_requirements']))
-        
+            with st.container(border=True):
+                st.subheader("❌ Missing Requirements", divider="red")
+                st.caption("These key requirements from the JD are not fully met:")
+                for item in comparison['missing_requirements']:
+                    st.markdown(f"🔴 {item}")
+
         if comparison.get('matched_requirements'):
-            with st.expander("Matched Requirements", expanded=False):
-                st.write("\n".join(f"- {item}" for item in comparison['matched_requirements']))
-        
+            with st.container(border=True):
+                st.subheader("✅ Matched Requirements", divider="green")
+                st.caption("These JD requirements are strongly matched:")
+                cols = st.columns(2)
+                for i, item in enumerate(comparison['matched_requirements']):
+                    cols[i%2].markdown(f"🟢 {item}")
+
         if 'error' in comparison:
-            st.error(f"Analysis error: {comparison['error']}") 
+            st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️") 
