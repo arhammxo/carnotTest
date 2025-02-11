@@ -1,8 +1,4 @@
-openai
-python-docx
-pymupdf
 streamlit
-langchain-core
-langchain-openai
-langchain-chroma
-pysqlite3
+pymupdf
+python-docx
+openai
