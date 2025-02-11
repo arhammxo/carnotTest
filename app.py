@@ -287,11 +287,16 @@ if resume_file and jd_file:
             st.divider()
             with st.container(border=False):
                 st.markdown("### 📝 Detailed Assessment")
-                st.markdown(f"""
-                <div style="padding:20px; line-height:1.6;">
-                    {score_explanation}
-                </div>
-                """, unsafe_allow_html=True)
+                # Split explanation into sections and format properly
+                sections = score_explanation.split('## ')
+                for section in sections:
+                    if section.strip():
+                        parts = section.split('\n', 1)
+                        if len(parts) > 1:
+                            st.subheader(parts[0])
+                            st.write(parts[1])
+                        else:
+                            st.write(section)
 
         if 'error' in comparison:
             st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️") 
