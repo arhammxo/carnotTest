@@ -69,13 +69,13 @@ def compare_skills(resume_data, jd_data):
        - Handle zero division: If JD requires 0 skills, full base weight awarded
     
     2. Qualifications Evaluation (30% base weight):
-       - Degree Level Match (10%):
-         * Full 10% if resume meets/exceeds JD's required degree level
-         * 5% if one level below JD requirement (e.g. JD requires Master's - resume has Bachelor's)
+       - Degree Level Match (20%):
+         * Full 20% if resume meets/exceeds JD's required degree level
+         * 10% if one level below JD requirement (e.g. JD requires Master's - resume has Bachelor's)
          * 0% if two+ levels below
-       - Field Relevance (20%):
-         * 20% if exact field match with JD requirements
-         * 10% if related field (e.g. Computer Engineering vs Computer Science)
+       - Field Relevance (10%):
+         * 10% if exact field match with JD requirements
+         * 5% if related field (e.g. Computer Engineering vs Computer Science)
          * 0% for unrelated fields
        - Only apply these scores if candidate has at least the minimum required degree type
        - Complete mismatch (e.g. JD requires CS degree - resume has unrelated degree) = 0% overall

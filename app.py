@@ -230,19 +230,6 @@ if resume_file and jd_file:
                 border-radius: 15px;
                 margin-bottom: 20px;
             }
-            .analysis-section {
-                padding: 15px;
-                background: var(--background-color);
-                border-radius: 10px;
-                margin: 10px 0;
-                border: 1px solid var(--border-color);
-            }
-            .recommendation-box {
-                background: var(--background-color);
-                padding: 15px;
-                border-radius: 10px;
-                border: 1px solid var(--border-color);
-            }
             </style>
             
             <div class="analysis-header">
@@ -251,35 +238,33 @@ if resume_file and jd_file:
             </div>
             """, unsafe_allow_html=True)
             
-            # Split into columns for better layout
-            col_left, col_right = st.columns([3, 2])
-            
-            with col_left:
-                with st.container(border=True):
+            # Combined card container with bottom margin
+            with st.container(border=True):
+                cols = st.columns(2)
+                with cols[0]:
                     st.markdown("### 🎯 Key Strengths")
                     st.markdown("""
-                    <div style="font-size:16px; line-height:1.6;">
+                    <div style="margin-bottom: 20px;">
                     ✅ Strong technical alignment<br>
                     🚀 Leadership potential detected<br>
                     💡 Innovative problem-solving approach
                     </div>
                     """, unsafe_allow_html=True)
-                    st.divider()
+                    
                     st.markdown("### 📉 Improvement Areas")
                     st.markdown("""
-                    <div style="font-size:16px; line-height:1.6;">
+                    <div style="margin-bottom: 20px;">
                     ⚠️ Limited cloud certification<br>
                     🔍 Missing AI/ML experience<br>
                     🌍 International exposure needed
                     </div>
                     """, unsafe_allow_html=True)
 
-            with col_right:
-                with st.container(border=True):
+                with cols[1]:
                     st.markdown("### 🏆 Recommendation")
                     st.markdown("""
-                    <div class="recommendation-box">
-                        <div style="font-size:18px; font-weight:bold; margin-bottom:10px;">
+                    <div style="margin-bottom: 20px;">
+                        <div style="font-size:18px; font-weight:bold;">
                             🥈 Silver Tier Candidate
                         </div>
                         <p style="margin:0; line-height:1.5;">
@@ -289,10 +274,10 @@ if resume_file and jd_file:
                         </p>
                     </div>
                     """, unsafe_allow_html=True)
-                    st.divider()
+                    
                     st.markdown("### 📅 Next Steps")
                     st.markdown("""
-                    <div>
+                    <div style="margin-bottom: 20px;">
                     • Schedule technical interview<br>
                     • Request portfolio review<br>
                     • Consider trial project
@@ -302,8 +287,11 @@ if resume_file and jd_file:
             st.divider()
             with st.container(border=False):
                 st.markdown("### 📝 Detailed Assessment")
-                st.markdown(f'<div class="analysis-section" style="padding:20px; line-height:1.6;">{score_explanation}</div>', 
-                          unsafe_allow_html=True)
+                st.markdown(f"""
+                <div style="padding:20px; line-height:1.6;">
+                    {score_explanation}
+                </div>
+                """, unsafe_allow_html=True)
 
         if 'error' in comparison:
             st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️") 
