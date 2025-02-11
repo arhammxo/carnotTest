@@ -8,16 +8,14 @@ import re
 
 apiK = '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'
 
-def extract_text_from_pdf(file_path):
-    """Extract text from PDF resume"""
-    with open(file_path, 'rb') as file:
-        reader = PyPDF2.PdfReader(file)
-        text = '\n'.join([page.extract_text() for page in reader.pages])
-    return text
+def extract_text_from_pdf(file_stream):
+    """Extract text from PDF resume using file stream"""
+    reader = PyPDF2.PdfReader(file_stream)
+    return '\n'.join([page.extract_text() for page in reader.pages])
 
-def extract_text_from_docx(file_path):
-    """Extract text from DOCX resume"""
-    doc = Document(file_path)
+def extract_text_from_docx(file_stream):
+    """Extract text from DOCX resume using file bytes"""
+    doc = Document(file_stream)
     return '\n'.join([para.text for para in doc.paragraphs])
 
 def extract_skills_with_openai(text):
