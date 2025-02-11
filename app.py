@@ -140,7 +140,16 @@ if resume_file and jd_file:
                     <div class="big-score" style="color:{score_color}">{score:.1f}%</div>
                 </div>
                 """, unsafe_allow_html=True)
-                st.progress(score/100, text=f"{'🚀 Excellent Fit' if score >= 75 else '📈 Good Potential' if score >= 50 else '⚠️ Needs Improvement'}")
+                
+                # Add styled text above the progress bar
+                st.markdown(f"""
+                    <div style='font-weight:900; font-size:24px; margin-top:25px; margin-bottom:10px; text-align:center'>
+                        {'🚀 EXCELLENT FIT' if score >= 75 else '📈 GOOD POTENTIAL' if score >= 50 else '⚠️ NEEDS IMPROVEMENT'}
+                    </div>
+                """, unsafe_allow_html=True)
+                
+                # Progress bar without text parameter
+                st.progress(score/100)
             
             with help_col:
                 st.subheader("📊 Interpretation Guide")
@@ -154,10 +163,8 @@ if resume_file and jd_file:
         # Dynamic Score Breakdown
         with st.expander("🧮 Detailed Score Composition", expanded=True):
             if 'score_breakdown' in comparison:
-                # Determine certification requirements from JD analysis
                 certs_required = comparison.get('certifications_required', False)
                 
-                # Adjust max weights based on certification requirements
                 max_weights = {
                     'technical_skills': 60 if not certs_required else 50,
                     'qualifications': 40 if not certs_required else 30,
@@ -165,19 +172,16 @@ if resume_file and jd_file:
                     'bonuses': 10
                 }
 
-                # Create columns based on certification presence
-                num_cols = 3 if not certs_required else 4
-                cols = st.columns(num_cols)
+                # Always use 4 columns but adjust visibility
+                cols = st.columns(4 if certs_required else 3)
                 
                 for i, (category, score) in enumerate(comparison['score_breakdown'].items()):
-                    # Skip certifications if not required
                     if not certs_required and category == 'certifications':
                         continue
                     
                     max_weight = max_weights.get(category, 100)
                     normalized_score = (score / max_weight) * 100 if max_weight > 0 else 0
                     
-                    # Custom icons and labels
                     category_info = {
                         'technical_skills': {"icon": "💻", "label": "Technical Skills"},
                         'qualifications': {"icon": "🎓", "label": "Qualifications"},
@@ -185,7 +189,9 @@ if resume_file and jd_file:
                         'bonuses': {"icon": "⭐", "label": "Bonuses"}
                     }
                     
-                    with cols[i%num_cols]:
+                    # Calculate column index based on certification presence
+                    col_idx = i if certs_required else i if i < 3 else i-1
+                    with cols[col_idx]:
                         st.metric(
                             label=f"{category_info[category]['icon']} {category_info[category]['label']}",
                             value=f"{normalized_score:.1f}%",
