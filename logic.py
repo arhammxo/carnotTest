@@ -7,7 +7,7 @@ import re
 import streamlit as st 
 import fitz  # PyMuPDF
 from langchain_core.documents import Document
-from langchain_chroma import Chroma
+from langchain_community.vectorstores import FAISS
 from langchain_openai import OpenAIEmbeddings
 
 apiK = st.secrets['openai']['api_key'] 
@@ -24,11 +24,9 @@ SKILL_KNOWLEDGE_BASE = [
 def create_skill_vector_store():
     """Create vector store for skill knowledge base"""
     embeddings = OpenAIEmbeddings(api_key=apiK)
-    return Chroma.from_texts(
+    return FAISS.from_texts(
         texts=SKILL_KNOWLEDGE_BASE,
-        embedding=embeddings,
-        collection_metadata={"hnsw:space": "cosine"},
-        persist_directory=None  # Disable persistent storage
+        embedding=embeddings
     )
 
 def retrieve_rag_context(query: str, vector_store, k=3):
