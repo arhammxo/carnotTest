@@ -1,14 +1,39 @@
 import argparse
 import os
-import PyPDF2
 from docx import Document
 from openai import OpenAI
 import json
 import re
 import streamlit as st 
 import fitz  # PyMuPDF
+from langchain_core.documents import Document
+from langchain_chroma import Chroma
+from langchain_openai import OpenAIEmbeddings
 
-apiK = st.secrets['openai']['api_key']
+apiK = st.secrets['openai']['api_key'] 
+
+# RAG Configuration
+SKILL_KNOWLEDGE_BASE = [
+    "Standardized skill taxonomies (e.g., NIST NICE Framework, ESCO)",
+    "Common certification requirements by industry",
+    "Degree equivalency frameworks (Bologna Process, ABET standards)",
+    "Emerging technology skill definitions",
+    "Industry-specific competency models"
+]
+
+def create_skill_vector_store():
+    """Create vector store for skill knowledge base"""
+    embeddings = OpenAIEmbeddings(api_key=apiK)
+    return Chroma.from_texts(
+        texts=SKILL_KNOWLEDGE_BASE,
+        embedding=embeddings,
+        persist_directory="./skill_db"
+    )
+
+def retrieve_rag_context(query: str, vector_store, k=3):
+    """Retrieve relevant context from knowledge base"""
+    results = vector_store.similarity_search(query, k=k)
+    return "\n".join([doc.page_content for doc in results])
 
 def extract_text_from_pdf(file_stream):
     """Extract text from PDF resume using file stream"""
@@ -32,44 +57,34 @@ def extract_skills_with_openai(text):
               - qualifications: array of educational/professional qualifications
               - certifications: array of professional certifications
               Resume text: {text}
-              Required categories:
-              - Programming Languages (Python, Java, etc)
-              - Cloud Computing (AWS, Azure, etc)
-              - ML Frameworks (TensorFlow, PyTorch, etc)
-              - DevOps (Docker, Kubernetes, CI/CD)
-              - Data Technologies (SQL, Spark, etc)
-              - AI Domains (Computer Vision, NLP, etc)
-              Normalize degree names, for example:
-              - "B.Tech" -> "Bachelor's"
-              - "B.Eng" -> "Bachelor's"
-              - "BS" -> "Bachelor's"
               
-              Also extract and include:
-              - Hackathon participation (list as "Hackathon Experience")
-              - Technical competitions (e.g., Kaggle, Codefest)
-              - Major projects (capstone, research, open source)
-              - Technical publications/presentations
+              Required technical categories:
+              - AI Domains: Explicitly list Computer Vision, NLP, or Generative AI when mentioned
+              - Hackathon Experience: Include any competition participation
+              - Technical Projects: List projects indicating NLP usage
               
-              For qualifications, include:
-              - Academic degrees
-              - Professional training programs
-              - Hackathon awards/recognitions
-              - Competition rankings
-              - Research projects
-              - Teaching/mentoring experience"""
+              Normalization rules:
+              - "Hackathon Winner" -> "Hackathon Experience"
+              - Projects using chatbots/OCR/text-processing -> "Natural Language Processing"
+              - Research internships -> "Published Research"
+              - GitHub portfolio -> "Open-source Contributions"
+              
+              Special handling:
+              - Convert "B.Tech" to "Bachelor's"
+              - Treat hackathon wins as qualifications
+              - Map project descriptions to technical skills"""
     
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{
-            "role": "user",
+            "role": "user", 
             "content": prompt.format(text=text[:10000])
         }],
         temperature=0.1,
-        response_format={"type": "json_object"}  # Add this to enforce JSON response
+        response_format={"type": "json_object"}
     )
     
     try:
-        # Handle potential markdown wrapping in response
         raw_response = response.choices[0].message.content
         json_str = re.search(r'```json\n(.*?)\n```', raw_response, re.DOTALL)
         if json_str:
@@ -81,7 +96,7 @@ def extract_skills_with_openai(text):
         return {
             "error": "Failed to parse OpenAI response",
             "details": str(e),
-            "raw_response": raw_response  # Include for debugging
+            "raw_response": raw_response
         }
 
 def compare_skills(resume_data, jd_data):
@@ -117,7 +132,20 @@ def compare_skills(resume_data, jd_data):
     
     4. Experience Bonus (0-10%):
        - +2% per year over JD's minimum requirement
-       - Max +10%"""
+       - Max +10%
+       
+    Add these matching rules:
+    1. NLP Recognition:
+       - Accept projects using: chatbots, text processing, OCR, speech systems
+       - Count LLM implementations as NLP experience
+       
+    2. Hackathon Validation:
+       - Consider competition wins as hackathon experience
+       - Treat school-level competitions as valid
+       
+    3. Research Recognition:
+       - Count research internships as published research
+       - Accept technical reports as research equivalents"""
     
     prompt = f"""Act as a senior technical recruiter with 15+ years experience. Conduct a rigorous, 
     quantitative analysis following these steps:
@@ -143,6 +171,16 @@ def compare_skills(resume_data, jd_data):
     - Verify project depth and complexity
     - Award bonus for leadership experience
 
+    5. Contextual Skill Mapping:
+       - Check project descriptions for implied skills
+       - Match 'conversational chatbot' -> NLP
+       - Map 'Smart India Hackathon Winner' -> Hackathon Experience
+       - Interpret 'research internship' -> Published Research
+       
+    6. GitHub Validation:
+       - Consider GitHub portfolio as open-source contribution
+       - Count organizational projects as open-source
+
     Resume Data:
     {json.dumps(resume_data, indent=2)}
 
@@ -162,7 +200,11 @@ def compare_skills(resume_data, jd_data):
             "bonuses": [0-10]
         }},
         "missing_requirements": ["list specific gaps with JD requirements"],
-        "matched_requirements": ["list specific matches with evidence"]
+        "matched_requirements": ["list specific matches with evidence"],
+        "strength_analysis": ["list of 3 key strengths"],
+        "improvement_areas": ["list of 3 key gaps"],
+        "hiring_recommendation": "concise hiring verdict",
+        "next_steps": ["3 actionable next steps"]
     }}"""
     
     response = client.chat.completions.create(
@@ -175,12 +217,10 @@ def compare_skills(resume_data, jd_data):
     )
     
     try:
-        # Extract JSON from markdown response
         raw_response = response.choices[0].message.content
         json_str = re.search(r'```json\n(.*?)\n```', raw_response, re.DOTALL).group(1)
         
         result = json.loads(json_str)
-        # Add validation for numerical values
         for key in ['technical_skills', 'qualifications', 'certifications', 'bonuses']:
             result['score_breakdown'][key] = float(result['score_breakdown'].get(key, 0))
         
@@ -188,7 +228,7 @@ def compare_skills(resume_data, jd_data):
         return result
     except (json.JSONDecodeError, KeyError, ValueError, AttributeError) as e:
         print(f"Error parsing response: {str(e)}")
-        print(f"Raw API response: {raw_response}")  # Show actual problematic response
+        print(f"Raw API response: {raw_response}")
         return {
             "error": f"Scoring failed: {str(e)}",
             "overall_score": 0,
@@ -199,7 +239,11 @@ def compare_skills(resume_data, jd_data):
                 'bonuses': 0
             },
             "missing_requirements": [],
-            "matched_requirements": []
+            "matched_requirements": [],
+            "strength_analysis": [],
+            "improvement_areas": [],
+            "hiring_recommendation": "",
+            "next_steps": []
         }
 
 def generate_score_explanation(resume_data, jd_data, comparison_result):
@@ -272,28 +316,23 @@ def main():
     
     args = parser.parse_args()
     
-    # Validate both files exist
     for path in [args.resume_path, args.job_description_path]:
         if not os.path.exists(path):
             raise FileNotFoundError(f"File {path} not found")
 
     def process_file(file_path):
-        """Process either resume or JD file"""
         if file_path.lower().endswith('.pdf'):
-            return extract_text_from_pdf(file_path)
+            return extract_text_from_pdf(open(file_path, 'rb'))
         elif file_path.lower().endswith('.docx'):
-            return extract_text_from_docx(file_path)
+            return extract_text_from_docx(open(file_path, 'rb'))
         raise ValueError("Unsupported file format")
 
-    # Process both documents
     resume_text = process_file(args.resume_path)
     jd_text = process_file(args.job_description_path)
 
-    # Extract skills from both documents
     resume_skills = extract_skills_with_openai(resume_text)
     jd_requirements = extract_skills_with_openai(jd_text)
 
-    # Display results
     def display_results(data, title):
         print(f"\n{title}:")
         for category in ['technical_skills', 'qualifications', 'certifications']:
@@ -304,41 +343,25 @@ def main():
     display_results(resume_skills, "RESUME SKILLS")
     display_results(jd_requirements, "JOB DESCRIPTION REQUIREMENTS")
 
-    # Add comparison and scoring
     comparison = compare_skills(resume_skills, jd_requirements)
     
     print("\n\nMATCH ANALYSIS:")
     print(f"Overall Match Score: {comparison['overall_score']}%")
     
-    # Updated score breakdown handling with safe access
     print("\nScore Breakdown:")
     if 'score_breakdown' in comparison:
         for category, score in comparison['score_breakdown'].items():
             print(f"- {category.replace('_', ' ').title()}: {score}%")
-    else:
-        print("- No score breakdown available")
     
-    # Consolidated missing requirements
     if comparison['missing_requirements']:
         print("\nMISSING REQUIREMENTS:")
         print('\n'.join(f'- {item}' for item in comparison['missing_requirements']))
-    else:
-        print("\nALL REQUIREMENTS MET!")
 
-    # Display matched requirements
     if comparison['matched_requirements']:
         print("\nMATCHED REQUIREMENTS:")
         print('\n'.join(f'- {item}' for item in comparison['matched_requirements']))
 
-    # Add error checking before display
-    if 'error' in comparison:
-        print(f"\nERROR: {comparison['error']}")
-        return
-
-    # Store explanation
     score_explanation = generate_score_explanation(resume_skills, jd_requirements, comparison)
-    
-    # Add explanation output
     print("\nSCORE EXPLANATION:")
     print(score_explanation)
 

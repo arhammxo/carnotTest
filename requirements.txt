@@ -1,4 +1,7 @@
-streamlit
-pymupdf
-python-docx
 openai
+python-docx
+pymupdf
+streamlit
+langchain-core
+langchain-openai
+langchain-chroma
