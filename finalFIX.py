@@ -175,6 +175,69 @@ def compare_skills(resume_data, jd_data):
             "matched_requirements": []
         }
 
+def generate_score_explanation(resume_data, jd_data, comparison_result):
+    """Generate natural language explanation of scoring results using LLM"""
+    client = OpenAI(api_key=apiK)
+    
+    prompt = f"""Act as a senior technical recruiter. Analyze this candidate evaluation and provide a detailed, 
+    professional explanation of the scoring results. Follow these guidelines:
+    1. Remember the exact scoring breakdown and comparison context from the analysis
+    2. Cross-reference specific requirements from the JD with resume details
+    3. Explain technical skill adjacencies that could compensate for gaps
+    4. Highlight patterns in qualifications/certifications
+    5. Maintain professional tone but add contextual insights
+    
+    Resume Summary:
+    {json.dumps(resume_data, indent=2)}
+    
+    Job Description Requirements:
+    {json.dumps(jd_data, indent=2)}
+    
+    Scoring Results:
+    {json.dumps(comparison_result, indent=2)}
+    
+    Structure your response with these sections (use markdown):
+    ## Overall Assessment
+    - Start with score interpretation
+    - Key comparative strengths/weaknesses
+    - High-level match summary
+    
+    ## Technical Competency Analysis
+    - Skill category comparisons with JD requirements
+    - Notable matches/mismatches with specific examples
+    - Contextual analysis of skill depth
+    
+    ## Qualifications Evaluation 
+    - Degree level/field alignment analysis
+    - Coursework/project relevance to JD
+    - Gap impact assessment
+    
+    ## Certification Alignment
+    - Direct/indirect certification matches
+    - Weight of missing certs in context
+    - Equivalent certifications analysis
+    
+    ## Experience Relevance
+    - Years experience vs requirements
+    - Project complexity comparison
+    - Leadership experience evaluation
+    
+    ## Final Recommendation
+    - Strong/Moderate/Weak fit conclusion *REFER TO THE SCORING RESULTS FOR THE CONCLUSION*
+    - Hiring consideration with context
+    - Suggested next steps"""
+    
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{
+            "role": "user",
+            "content": prompt
+        }],
+        temperature=0.3
+    )
+    
+    return response.choices[0].message.content
+
 def main():
     parser = argparse.ArgumentParser(description='Skills Comparator')
     parser.add_argument('resume_path', help='Path to PDF/DOCX resume file')
@@ -244,6 +307,13 @@ def main():
     if 'error' in comparison:
         print(f"\nERROR: {comparison['error']}")
         return
+
+    # Store explanation
+    score_explanation = generate_score_explanation(resume_skills, jd_requirements, comparison)
+    
+    # Add explanation output
+    print("\nSCORE EXPLANATION:")
+    print(score_explanation)
 
 if __name__ == "__main__":
     main()

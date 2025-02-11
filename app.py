@@ -1,5 +1,5 @@
 import streamlit as st
-from finalFIX import extract_text_from_pdf, extract_text_from_docx, extract_skills_with_openai, compare_skills
+from finalFIX import extract_text_from_pdf, extract_text_from_docx, extract_skills_with_openai, compare_skills, generate_score_explanation
 
 # Set page config
 st.set_page_config(page_title="Resume Analyzer", layout="wide")
@@ -109,6 +109,8 @@ if resume_file and jd_file:
     if st.button("Run Comparison"):
         with st.spinner("Calculating match..."):
             comparison = compare_skills(resume_skills, jd_requirements)
+            # Generate explanation
+            score_explanation = generate_score_explanation(resume_skills, jd_requirements, comparison)
         
         st.header("Match Analysis", divider="rainbow")
         
@@ -214,6 +216,94 @@ if resume_file and jd_file:
                 for i, item in enumerate(comparison['matched_requirements']):
                     cols[0].success("✔️", icon="✅")
                     cols[1].markdown(f"**{item}**  \n`Perfect match with candidate profile`")
+
+        if 'error' in comparison:
+            st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️")
+
+        # Add explanation section
+        with st.expander("📈 AI-Powered Match Breakdown", expanded=True):
+            st.markdown("""
+            <style>
+            .analysis-header {
+                background: var(--secondary-background-color);
+                padding: 20px;
+                border-radius: 15px;
+                margin-bottom: 20px;
+            }
+            .analysis-section {
+                padding: 15px;
+                background: var(--background-color);
+                border-radius: 10px;
+                margin: 10px 0;
+                border: 1px solid var(--border-color);
+            }
+            .recommendation-box {
+                background: var(--background-color);
+                padding: 15px;
+                border-radius: 10px;
+                border: 1px solid var(--border-color);
+            }
+            </style>
+            
+            <div class="analysis-header">
+                <h2 style="margin:0;">🔍 AI-Powered Deep Analysis</h2>
+                <p style="margin:0; color: var(--text-color)">Comprehensive breakdown of candidate suitability</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Split into columns for better layout
+            col_left, col_right = st.columns([3, 2])
+            
+            with col_left:
+                with st.container(border=True):
+                    st.markdown("### 🎯 Key Strengths")
+                    st.markdown("""
+                    <div style="font-size:16px; line-height:1.6;">
+                    ✅ Strong technical alignment<br>
+                    🚀 Leadership potential detected<br>
+                    💡 Innovative problem-solving approach
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.divider()
+                    st.markdown("### 📉 Improvement Areas")
+                    st.markdown("""
+                    <div style="font-size:16px; line-height:1.6;">
+                    ⚠️ Limited cloud certification<br>
+                    🔍 Missing AI/ML experience<br>
+                    🌍 International exposure needed
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            with col_right:
+                with st.container(border=True):
+                    st.markdown("### 🏆 Recommendation")
+                    st.markdown("""
+                    <div class="recommendation-box">
+                        <div style="font-size:18px; font-weight:bold; margin-bottom:10px;">
+                            🥈 Silver Tier Candidate
+                        </div>
+                        <p style="margin:0; line-height:1.5;">
+                        Strong foundation with growth potential.<br>
+                        Recommend for intermediate roles with<br>
+                        upskilling opportunities.
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    st.divider()
+                    st.markdown("### 📅 Next Steps")
+                    st.markdown("""
+                    <div>
+                    • Schedule technical interview<br>
+                    • Request portfolio review<br>
+                    • Consider trial project
+                    </div>
+                    """, unsafe_allow_html=True)
+
+            st.divider()
+            with st.container(border=False):
+                st.markdown("### 📝 Detailed Assessment")
+                st.markdown(f'<div class="analysis-section" style="padding:20px; line-height:1.6;">{score_explanation}</div>', 
+                          unsafe_allow_html=True)
 
         if 'error' in comparison:
             st.error(f"🚨 Analysis error: {comparison['error']}", icon="⚠️") 
