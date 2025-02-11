@@ -42,21 +42,46 @@ def extract_skills_with_openai(text):
               - "B.Tech" -> "Bachelor's"
               - "B.Eng" -> "Bachelor's"
               - "BS" -> "Bachelor's"
-              ..."""
+              
+              Also extract and include:
+              - Hackathon participation (list as "Hackathon Experience")
+              - Technical competitions (e.g., Kaggle, Codefest)
+              - Major projects (capstone, research, open source)
+              - Technical publications/presentations
+              
+              For qualifications, include:
+              - Academic degrees
+              - Professional training programs
+              - Hackathon awards/recognitions
+              - Competition rankings
+              - Research projects
+              - Teaching/mentoring experience"""
     
     response = client.chat.completions.create(
         model="gpt-4o",
         messages=[{
             "role": "user",
-            "content": prompt.format(text=text[:3000])
+            "content": prompt.format(text=text[:10000])
         }],
-        temperature=0.1  # Lower temperature for more consistent outputs
+        temperature=0.1,
+        response_format={"type": "json_object"}  # Add this to enforce JSON response
     )
     
     try:
-        return json.loads(response.choices[0].message.content)
-    except json.JSONDecodeError:
-        return {"error": "Failed to parse OpenAI response"}
+        # Handle potential markdown wrapping in response
+        raw_response = response.choices[0].message.content
+        json_str = re.search(r'```json\n(.*?)\n```', raw_response, re.DOTALL)
+        if json_str:
+            return json.loads(json_str.group(1))
+        return json.loads(raw_response)
+    except Exception as e:
+        print(f"Error parsing response: {str(e)}")
+        print(f"Raw API response: {raw_response}")
+        return {
+            "error": "Failed to parse OpenAI response",
+            "details": str(e),
+            "raw_response": raw_response  # Include for debugging
+        }
 
 def compare_skills(resume_data, jd_data):
     """Compare resume skills with JD requirements using structured scoring"""

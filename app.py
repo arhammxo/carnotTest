@@ -1,5 +1,5 @@
 import streamlit as st
-from finalFIX import extract_text_from_pdf, extract_text_from_docx, extract_skills_with_openai, compare_skills, generate_score_explanation
+from logic import extract_text_from_pdf, extract_text_from_docx, extract_skills_with_openai, compare_skills, generate_score_explanation
 
 # Set page config
 st.set_page_config(page_title="Resume Analyzer", layout="wide")
