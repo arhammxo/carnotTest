@@ -6,13 +6,14 @@ from openai import OpenAI
 import json
 import re
 import streamlit as st 
+import fitz  # PyMuPDF
 
 apiK = st.secrets['openai']['api_key']
 
 def extract_text_from_pdf(file_stream):
     """Extract text from PDF resume using file stream"""
-    reader = PyPDF2.PdfReader(file_stream)
-    return '\n'.join([page.extract_text() for page in reader.pages])
+    doc = fitz.open(stream=file_stream.read(), filetype="pdf")
+    return '\n'.join([page.get_text() for page in doc])
 
 def extract_text_from_docx(file_stream):
     """Extract text from DOCX resume using file bytes"""
