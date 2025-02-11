@@ -144,7 +144,7 @@ if resume_file and jd_file:
                 # Add styled text above the progress bar
                 st.markdown(f"""
                     <div style='font-weight:900; font-size:24px; margin-top:25px; margin-bottom:10px; text-align:center'>
-                        {'🚀 EXCELLENT FIT' if score >= 75 else '📈 GOOD POTENTIAL' if score >= 50 else '⚠️ NEEDS IMPROVEMENT'}
+                        {'🚀 IDEAL CANDIDATE' if score >= 90 else '📈 STRONG MATCH' if score >= 75 else '🤝 POTENTIAL CANDIDATE' if score >= 50 else '⚠️ SIGNIFICANT GAPS'}
                     </div>
                 """, unsafe_allow_html=True)
                 
