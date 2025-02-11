@@ -27,7 +27,8 @@ def create_skill_vector_store():
     return Chroma.from_texts(
         texts=SKILL_KNOWLEDGE_BASE,
         embedding=embeddings,
-        persist_directory="./skill_db"
+        collection_metadata={"hnsw:space": "cosine"},
+        persist_directory=None  # Disable persistent storage
     )
 
 def retrieve_rag_context(query: str, vector_store, k=3):
