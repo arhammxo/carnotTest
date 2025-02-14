@@ -14,11 +14,55 @@ apiK = st.secrets['openai']['api_key']
 
 # RAG Configuration
 SKILL_KNOWLEDGE_BASE = [
-    "Standardized skill taxonomies (e.g., NIST NICE Framework, ESCO)",
-    "Common certification requirements by industry",
-    "Degree equivalency frameworks (Bologna Process, ABET standards)",
-    "Emerging technology skill definitions",
-    "Industry-specific competency models"
+    # Standardized Taxonomies
+    "O*NET-SOC taxonomy for occupational skills and competencies",
+    "European Skills/Competences, Qualifications and Occupations (ESCO)",
+    "NIST NICE Cybersecurity Workforce Framework",
+    "Skills Framework for the Information Age (SFIA)",
+    "LinkedIn's Emerging Jobs Report skill taxonomy",
+    
+    # Certification Standards
+    "CompTIA IT certification roadmap",
+    "AWS/Azure/GCP cloud certification paths",
+    "ISC2 cybersecurity certifications framework",
+    "PMI project management certification requirements",
+    "Google Career Certificates competency matrix",
+    
+    # Education Frameworks
+    "Bologna Process qualifications framework (EQF)",
+    "ABET computing accreditation criteria",
+    "ACM/IEEE Computer Science Curricula guidelines",
+    "National Skills Qualification Framework (NSQF) - India",
+    "Singapore Skills Framework for ICT",
+    
+    # Emerging Technologies
+    "AI/ML skill frameworks from TensorFlow Certification and PyTorch documentation",
+    "Quantum Computing competency models from IBM Q and Rigetti",
+    "Blockchain developer skill requirements from Ethereum Enterprise Alliance",
+    "NVIDIA Deep Learning Institute competency standards",
+    "OpenAI API developer certification requirements",
+    
+    # Industry-Specific Models
+    "Financial Industry Competency Catalog (FINRA)",
+    "Biotech Competency Model (BioPharma)",
+    "Autonomous Systems Engineering Competency Framework (SAE)",
+    "Smart Manufacturing Skill Framework (I4.0)",
+    "Cybersecurity Maturity Model Certification (CMMC) requirements",
+    
+    # Military Crosswalks
+    "Military to Civilian Skills Translator (O*NET)",
+    "COOL (Credentialing Opportunities On-Line) for military specialties",
+    "NATO Standardized Occupational Coding System",
+    
+    # Open Source Competencies
+    "Linux Foundation certification competency matrices",
+    "Apache Software Foundation contributor skill requirements",
+    "CNCF Cloud Native Skill Framework",
+    
+    # Soft Skills Frameworks
+    "World Economic Forum Future of Jobs top skills",
+    "Bloom's Taxonomy for cognitive skill levels",
+    "EQ-i 2.0 Emotional Intelligence Framework"
 ]
 
 def create_skill_vector_store():
