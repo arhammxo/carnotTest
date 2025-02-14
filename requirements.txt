@@ -6,3 +6,4 @@ langchain-core
 langchain-openai
 langchain-chroma
 langchain-community
+faiss-cpu
