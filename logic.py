@@ -48,6 +48,9 @@ def extract_skills_with_openai(text):
     """Use OpenAI API to extract skills and qualifications"""
     client = OpenAI(api_key=apiK)
     
+    vector_store = create_skill_vector_store()
+    skill_context = retrieve_rag_context(text, vector_store)
+    
     prompt = """Analyze this resume text and extract technical skills, qualifications,
               and certifications. Generalize terms to broader categories (e.g., 
               "Python" -> "Programming Languages", "AWS" -> "Cloud Computing").
@@ -55,6 +58,9 @@ def extract_skills_with_openai(text):
               - technical_skills: array of generalized technical capabilities
               - qualifications: array of educational/professional qualifications
               - certifications: array of professional certifications
+              Relevant Skill Framework Context:
+              {skill_context}
+              
               Resume text: {text}
               
               Required technical categories:
@@ -77,7 +83,10 @@ def extract_skills_with_openai(text):
         model="gpt-4o",
         messages=[{
             "role": "user", 
-            "content": prompt.format(text=text[:10000])
+            "content": prompt.format(
+                skill_context=skill_context,
+                text=text[:10000]
+            )
         }],
         temperature=0.1,
         response_format={"type": "json_object"}
